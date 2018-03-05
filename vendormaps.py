@@ -87,6 +87,21 @@ def FilterThicknessMaximum(hdr):
                 return []
 
 
+def Grid(hdr):
+    assert(type(hdr) == dicomtools.header)
+    modality = hdr[0x0008, 0x0060]
+    manufacturer = hdr[0x0008, 0x0070].lower()
+    if (modality == 'dx'):
+        s = hdr[0x0018, 0x1166].upper()
+        if (manufacturer == 'ge healthcare'):
+            if 'FOCUSED' in s:
+                return s + f'\\{hdr[0x0018, 0x704c]:.0f}'
+            else:
+                return s
+        else:
+            return s
+
+
 def ImageProcessingDescription(hdr):
     assert(type(hdr) == dicomtools.header)
     modality = hdr[0x0008, 0x0060]
