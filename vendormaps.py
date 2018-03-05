@@ -71,9 +71,9 @@ def FilterThicknessMaximum(hdr):
     if modality.lower() == 'dx':
         fMat = FilterMaterial(hdr)
         if manufacturer.lower() == 'siemens':
-            if ('None' in fMat):
+            if ('NONE' in fMat):
                 return [0]
-            elif ('Copper' in fMat):
+            elif ('COPPER' in fMat):
                 raise NotImplementedError()
             else:
                 raise NotImplementedError()
@@ -124,14 +124,16 @@ def Protocol(hdr):
     if (modality == 'dx'):
         if (manufacturer == 'siemens'):
             # Per DICOM conformance
-            return hdr[0x0040, 0x0254]
+            val = hdr[0x0040, 0x0254]
         elif (manufacturer == 'ge healthcare'):
-            return hdr[0x0018, 0x1030]
+            val = hdr[0x0018, 0x1030]
         else:
-            try:
-                return hdr[0x0008, 0x1032][0].value
-            except Exception as e:
-                raise e
+            val = hdr[0x0008, 0x1032]
+            if (type(val) == list):
+                val = val[0].value
+            else:
+                raise NotImplementedError()
+        return val
 
 
 def Modality(hdr):
