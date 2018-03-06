@@ -10,11 +10,14 @@ import dicomtools
 
 def BodyPart(hdr):
     assert(type(hdr) == dicomtools.header)
-    sqBody = hdr[0x0008, 0x2218]
-    if sqBody:
-        raise NotImplementedError()
-    else:
-        return hdr[0x0018, 0x0015]
+    if hdr[0x0008, 0x2218]:
+        for de in hdr[0x0008, 0x2218]:
+            if (de.description.lower() == 'code meaning'):
+                return de.value
+
+    # In the event that the Anatomic Region Sequence or code meaning within
+    # that sequence is not found, simply return the Body Part Examined tag
+    return hdr[0x0018, 0x0015]
 
 
 def CollimatorShape(hdr):
