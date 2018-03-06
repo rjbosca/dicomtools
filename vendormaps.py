@@ -42,7 +42,7 @@ def FilterMaterial(hdr):
             elif 'cu' in hdr[0x0017, 0x100f].lower():
                 return ['NONE']
             else:
-                raise NotImplementedError()
+                return []
         else:
             val = hdr[0x0018, 0x7050].upper()
             if '\\' in val:
@@ -50,7 +50,7 @@ def FilterMaterial(hdr):
             elif val:
                 return [val]
             else:
-                return ['']
+                return []
 
 
 def FilterThicknessMinimum(hdr):
