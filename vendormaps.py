@@ -8,6 +8,15 @@ Created on Tue Feb 20 09:04:54 2018
 import dicomtools
 
 
+def BodyPart(hdr):
+    assert(type(hdr) == dicomtools.header)
+    sqBody = hdr[0x0008, 0x2218]
+    if sqBody:
+        raise NotImplementedError()
+    else:
+        return hdr[0x0018, 0x0015]
+
+
 def CollimatorShape(hdr):
     assert(type(hdr) == dicomtools.header)
     modality = hdr[0x0008, 0x0060].lower()
@@ -38,7 +47,7 @@ def FilterMaterial(hdr):
             elif val:
                 return [val]
             else:
-                return ['UNKNOWN']
+                return ['']
 
 
 def FilterThicknessMinimum(hdr):
@@ -131,8 +140,6 @@ def Protocol(hdr):
             val = hdr[0x0008, 0x1032]
             if (type(val) == list):
                 val = val[0].value
-            else:
-                raise NotImplementedError()
         return val
 
 
