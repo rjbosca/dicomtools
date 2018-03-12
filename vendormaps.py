@@ -69,9 +69,10 @@ def FilterThicknessMinimum(hdr):
         else:
             if fMat:
                 fl = hdr[0x0018, 0x7054]
-                if (type(fl) != list):
-                    fl = [fl]
-                return fl
+                if not fl:
+                    return ['']*len(fMat)
+                else:
+                    raise NotImplementedError()
             else:
                 return []
 
@@ -92,9 +93,10 @@ def FilterThicknessMaximum(hdr):
         else:
             if fMat:
                 fl = hdr[0x0018, 0x7054]
-                if (type(fl) != list):
-                    fl = [fl]
-                return fl
+                if not fl:
+                    return ['']*len(fMat)
+                else:
+                    raise NotImplementedError()
             else:
                 return []
 
