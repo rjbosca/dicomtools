@@ -697,7 +697,6 @@ class dataelement(gdcmMixin):
         # Store and return the newly converted raw data element
         return val
 
-
     def desc2attr(self):
         """Convert a data element description into a proper attribute name.
 
