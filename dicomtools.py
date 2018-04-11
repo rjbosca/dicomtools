@@ -161,8 +161,8 @@ class dicomMixin():
         # to a valid directory name are present
         # TODO: in a future version of this function, there should be a way of
         #       specifying what data to use
-        sNum = hdr[0x0020, 0x0011].value
-        sDesc = hdr[0x0008, 0x0103e].value
+        sNum = hdr[0x0020, 0x0011]
+        sDesc = hdr[0x0008, 0x0103e]
         if not(sNum) or not(sDesc):
             print(hdr)
             print("Unable to generate directory name!")
@@ -197,6 +197,8 @@ class dicomMixin():
         f = next(fGen)
         if f:
             d = dicomMixin.get_dir_from_dicom(f)
+            if not(d):
+                raise NotImplementedError()
         else:
             raise NotImplementedError()
 
