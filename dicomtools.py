@@ -10,6 +10,7 @@ import gdcm
 import SimpleITK
 import matplotlib
 import vendormaps
+import viewer
 
 
 class dicomMixin():
@@ -273,10 +274,18 @@ class dicom(dicomMixin):
 
         return SimpleITK.GetArrayFromImage(self._image)
 
-    def show(self):
-        """Show the DICOM image
+    def show(self, showSeries = False):
+        """Show the DICOM image(s)
+
+        Parameters
+        ----------
+        showSeries : bool
+            When True, any images in the same directory as the current DICOM
+            object will be displayed via a viewer that allows scrolling.
+            Default: False
 
         """
+
 
         # TODO: there should be some validation to ensure that the file does,
         #       in fact, contain image data...
