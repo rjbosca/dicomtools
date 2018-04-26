@@ -98,47 +98,6 @@ class dicomMixin():
         return r.Read()
 
     @staticmethod
-    def seek_dicom(dicomDir, **kwargs):
-        """Recursively seek all DICOM files in a specified directory
-
-        Parameters
-        ----------
-            dicomDir : str or py.path.local
-                Full name of the directory to be searched for DICOM files
-            fil : str
-                A filter (glob pattern or callable) that, if not matching the
-                path/file will not yield that path/file. Default: None
-            gen : bool
-                When True, seek_dicom returns a generator that yields DICOM
-                files. Otherwise, all DICOM files are returned as a list
-
-        Returns
-        -------
-            files : list or generator
-                DICOM file(s) found in the specified directory and sub-
-                directories. See also the optional input gen
-
-        Notes
-        -----
-            For large directory trees, this function can require a significant
-            amount of time to complete
-
-        """
-
-        dicomDir = dirStr2PyPath(dicomDir)
-
-        if kwargs.get('gen', False):  # generator option
-            for pp in dicomDir.visit(fil=kwargs.get('fil', None)):
-                if pp.isfile() and dicomMixin.isdicom(pp):
-                    yield pp
-        else:  # get all files
-            f = []
-            for pp in dicomDir.visit(fil=kwargs.get('fil', None)):
-                if pp.isfile() and dicomMixin.isdicom(pp):
-                    f.append(pp)
-            return f
-
-    @staticmethod
     def get_dir_from_dicom(hdr):
         """Converts DICOM meta-data to a valid directory
 
@@ -194,23 +153,65 @@ class dicomMixin():
         dicomDir = dirStr2PyPath(dicomDir)
 
         # Check each file for DICOM data
-        fGen = dicomMixin.seek_dicom(dicomDir, gen=True)
-        f = next(fGen)
-        if f:
-            d = dicomMixin.get_dir_from_dicom(f)
-            if not(d):
-                raise NotImplementedError()
-        else:
-            raise NotImplementedError()
+        for f in dicomMixin.seek_dicom(dicomDir, gen=True):
+            try:
+                # Get the new directory names
+                d = dicomMixin.get_dir_from_dicom(f)
 
-        # Rename the directory
-        newPath = py.path.local(dicomDir.dirname).join(d)
-        if newPath.isdir():
-            raise NotImplementedError()
-        else:
-            dicomDir.rename(newPath)
+                # Rename the directory, returning the success
+                newPath = py.path.local(dicomDir.dirname).join(d)
+                dicomDir.rename(newPath)
+                return newPath.isdir()
 
-        return newPath.isdir()
+            except (py.error.EEXIST) as error:
+                #TODO: this error checking is incomplete
+                if (newPath == dicomDir):
+                    return False
+                else:
+                    continue
+            except Exception as error:
+                raise(error)
+
+    @staticmethod
+    def seek_dicom(dicomDir, **kwargs):
+        """Recursively seek all DICOM files in a specified directory
+
+        Parameters
+        ----------
+            dicomDir : str or py.path.local
+                Full name of the directory to be searched for DICOM files
+            fil : str
+                A filter (glob pattern or callable) that, if not matching the
+                path/file will not yield that path/file. Default: None
+            gen : bool
+                When True, seek_dicom returns a generator that yields DICOM
+                files. Otherwise, all DICOM files are returned as a list
+
+        Returns
+        -------
+            files : list or generator
+                DICOM file(s) found in the specified directory and sub-
+                directories. See also the optional input gen
+
+        Notes
+        -----
+            For large directory trees, this function can require a significant
+            amount of time to complete
+
+        """
+
+        dicomDir = dirStr2PyPath(dicomDir)
+
+        if kwargs.get('gen', False):  # generator option
+            for pp in dicomDir.visit(fil=kwargs.get('fil', None)):
+                if pp.isfile() and dicomMixin.isdicom(pp):
+                    yield pp
+        else:  # get all files
+            f = []
+            for pp in dicomDir.visit(fil=kwargs.get('fil', None)):
+                if pp.isfile() and dicomMixin.isdicom(pp):
+                    f.append(pp)
+            return f
 
 
 class gdcmMixin():
