@@ -205,15 +205,27 @@ class dicomMixin():
         dicomDir = dirStr2PyPath(dicomDir)
 
         if kwargs.get('gen', False):  # generator option
-            for pp in dicomDir.visit(fil=kwargs.get('fil', None)):
-                if pp.isfile() and dicomMixin.isdicom(pp):
-                    yield pp
+            return dicomMixin._seek_dicom_gen(dicomDir, **kwargs)
         else:  # get all files
             f = []
             for pp in dicomDir.visit(fil=kwargs.get('fil', None)):
                 if pp.isfile() and dicomMixin.isdicom(pp):
                     f.append(pp)
             return f
+
+    @staticmethod
+    def _seek_dicom_gen(dicomDir, **kwargs):
+        """Make a generator for recursively seeking DICOM files
+
+        Notes
+        -----
+            See seek_dicom
+
+        """
+
+        for pp in dicomDir.visit(fil=kwargs.get('fil', None)):
+            if pp.isfile() and dicomMixin.isdicom(pp):
+                yield pp
 
 
 class gdcmMixin():
