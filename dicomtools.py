@@ -6,8 +6,10 @@ Created on Mon Feb 06 22:21:51 2017
 """
 
 import py
+import PyQt5
 import gdcm
 import SimpleITK
+import sys
 import matplotlib
 import vendormaps
 import viewer
@@ -184,8 +186,8 @@ class dicomMixin():
                 A filter (glob pattern or callable) that, if not matching the
                 path/file will not yield that path/file. Default: None
             gen : bool
-                When True, seek_dicom returns a generator that yields DICOM
-                files. Otherwise, all DICOM files are returned as a list
+                When True (default), seek_dicom returns a generator that yields
+                DICOM files. Otherwise, all DICOM files are returned as a list.
 
         Returns
         -------
@@ -287,13 +289,23 @@ class dicom(dicomMixin):
 
         """
 
+        if showSeries:
 
-        # TODO: there should be some validation to ensure that the file does,
-        #       in fact, contain image data...
-        # TODO: the below code works if the DICOM image isn't a time series
-        img = SimpleITK.ReadImage(self.file.strpath)
-        imgArray = SimpleITK.GetArrayFromImage(img)[0, :, :]
-        matplotlib.pyplot.imshow(imgArray)
+            qApp = PyQt5.QtWidgets.QApplication([''])
+
+            v = viewer.DICOMviewer(self.file.dirpath().strpath)
+            v.setWindowTitle("DICOMviewer")
+            v.show()
+
+            sys.exit(qApp.exec_())
+
+        else:
+            # TODO: there should be some validation to ensure that the file
+            #       does, in fact, contain image data...
+            # TODO: the below code works if the DICOM image isn't a time series
+            img = SimpleITK.ReadImage(self.file.strpath)
+            imgArray = SimpleITK.GetArrayFromImage(img)[0, :, :]
+            matplotlib.pyplot.imshow(imgArray)
 
 
 class header(dicomMixin, gdcmMixin):

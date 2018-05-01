@@ -6,7 +6,6 @@ Created on Sun Dec 17 14:59:59 2017
 """
 
 import os
-import sys
 import PyQt5
 import numpy
 import matplotlib
@@ -107,7 +106,8 @@ class DICOMcanvas(FigureCanvas):
 
         # Initialize the image index and DICOM directory
         self.dirDicom = parent.dirDicom
-        self.fileNames = SimpleITK.ImageSeriesReader.GetGDCMSeriesFileNames(self.dirDicom)
+        self.fileNames = \
+            SimpleITK.ImageSeriesReader.GetGDCMSeriesFileNames(self.dirDicom)
         reader = SimpleITK.ImageSeriesReader()
         reader.SetFileNames(self.fileNames)
         self.image = reader.Execute()
@@ -125,10 +125,3 @@ class DICOMcanvas(FigureCanvas):
         self.axes.set_aspect('auto')
         self.axes.set_xlabel(f'Slice: {self.idxFiles+1}  File: ..{fName}')
         self.draw()
-
-
-if __name__ == '__main__':
-
-    app = QApplication(sys.argv)
-
-    w = DICOMviewer(sys.argv)
