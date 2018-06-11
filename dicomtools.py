@@ -11,6 +11,7 @@ import gdcm
 import SimpleITK
 import sys
 import matplotlib
+import matplotlib.pyplot
 import vendormaps
 import viewer
 
@@ -214,6 +215,30 @@ class dicomMixin():
             return f
 
     @staticmethod
+    def sort_dir(dicomDir):
+        """Sort a directory of DICOM images
+
+        Parameters
+        ----------
+            dicomDir : str or py.path.local
+                Full name of the directory containing DICOm files to be sorted
+
+        """
+
+        #FIXME: this code was written qukcly! Make sure it makes sense... Error
+        #       checking, etc.
+        dicomDir = dirStr2PyPath(dicomDir)
+
+        for f in dicomDir.listdir():
+
+            if not (f.isfile() and dicomMixin.isdicom(f)):
+                continue
+
+            newDir = dicomDir.join(dicomMixin.get_dir_from_dicom(f))
+            newDir.ensure_dir()
+            f.move(newDir.join(f.purebasename))
+
+    @staticmethod
     def _seek_dicom_gen(dicomDir, **kwargs):
         """Make a generator for recursively seeking DICOM files
 
@@ -289,7 +314,7 @@ class dicom(dicomMixin):
 
         return SimpleITK.GetArrayFromImage(self._image)
 
-    def show(self, showSeries = False):
+    def show(self, showSeries=False):
         """Show the DICOM image(s)
 
         Parameters
@@ -317,7 +342,9 @@ class dicom(dicomMixin):
             # TODO: the below code works if the DICOM image isn't a time series
             img = SimpleITK.ReadImage(self.file.strpath)
             imgArray = SimpleITK.GetArrayFromImage(img)[0, :, :]
-            matplotlib.pyplot.imshow(imgArray)
+            fig = matplotlib.pyplot.Figure(frameon=False)
+            matplotlib.pyplot.imshow(imgArray, cmap='gray')
+            matplotlib.pyplot.show()
 
 
 class header(dicomMixin, gdcmMixin):
