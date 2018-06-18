@@ -138,13 +138,19 @@ class dicomMixin():
         return '--'.join([sNum, sDesc])
 
     @staticmethod
-    def mkdir_dicom(dicomDir):
+    def mkdir_dicom(dicomDir, useAllFiles=False):
         """Rename a directory of DICOM files based on the meta-data
 
         Parameters
         ----------
         dicomdir : str or py.path.local
             Absolute to path of the directory to be renamed
+        useAllFiles: bool
+            When True, every file in the specified directory will be used to
+            determine the target directory. The file will be moved to the
+            target assuming a file of the same name does not exist at that
+            location. By default, only the first DICOM file found is used to
+            determine the target directory
 
         Returns
         -------
@@ -156,24 +162,42 @@ class dicomMixin():
         dicomDir = dirStr2PyPath(dicomDir)
 
         # Check each file for DICOM data
+        isSuccess = False
         for f in dicomMixin.seek_dicom(dicomDir, gen=True):
             try:
                 # Get the new directory names
                 d = dicomMixin.get_dir_from_dicom(f)
 
-                # Rename the directory, returning the success
+                # Generate the new path name
                 newPath = py.path.local(dicomDir.dirname).join(d)
-                dicomDir.rename(newPath)
-                return newPath.isdir()
+                newFile = newPath.join(f.purebasename)
+
+                # Rename the directory or move the file depending on the user
+                # option, returning the success
+                if useAllFiles:
+                    if newFile.exists():
+                        continue
+                    else:
+                        f.move(newFile)
+                else:
+                    dicomDir.rename(newPath)
+                    isSuccess = newPath.isdir()
+                    break
 
             except (py.error.EEXIST) as error:
                 #TODO: this error checking is incomplete
                 if (newPath == dicomDir):
-                    return False
+                    break
                 else:
                     continue
             except Exception as error:
                 raise(error)
+
+        # Remove the directory (if empty)
+        if useAllFiles and not dicomDir.listdir():
+            dicomDir.remove()
+
+        return isSuccess
 
     @staticmethod
     def seek_dicom(dicomDir, **kwargs):
@@ -461,7 +485,7 @@ class header(dicomMixin, gdcmMixin):
     def readsingle(self, tag=()):
         """Reads only the requested tag
 
-        Similar to 'read', except 'readtag' will read only the user-requested
+        Similar to 'read', except 'readsingle' will read only the user-requested
         tag, appending that element, in place, to the header class instance. If
         the DICOM file has already been read, that tag will be
 
@@ -531,7 +555,7 @@ class header(dicomMixin, gdcmMixin):
 
         # A note on the following code... I attempted to use a simple WHILE
         # loop to read the DICOM header, but found little success. In fact,
-        # using that control structure resulted in an infinite loop. Instead, a
+        # using that control stru\cture resulted in an infinite loop. Instead, a
         # generator is created (see the gdcmMixins method _gdcm_gen), which
         # does not cause the infinite loop) and allows finer iteration control.
 
