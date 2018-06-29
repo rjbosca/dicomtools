@@ -100,6 +100,19 @@ class dicomMixin():
         r.SetFileName(file.strpath)
         return r.Read()
 
+    def issdr(self):
+        """Attempt to determine whether a given file is an SDR
+
+        Returns
+        -------
+        bool
+            True if the file is a structured dose report (SDR), False
+            otherwise.
+
+        """
+
+        return self.__is_sdr__()
+
     @staticmethod
     def get_dir_from_dicom(hdr):
         """Converts DICOM meta-data to a valid directory
@@ -170,6 +183,7 @@ class dicomMixin():
 
                 # Generate the new path name
                 newPath = py.path.local(dicomDir.dirname).join(d)
+                newPath.ensure_dir()
                 newFile = newPath.join(f.purebasename)
 
                 # Rename the directory or move the file depending on the user
@@ -314,7 +328,7 @@ class dicom(dicomMixin):
     ----------
     file : py.path.local
         DICOM file
-    header: dicomtools.header
+    header : dicomtools.header
         Meta-data reference class
 
     """
@@ -369,6 +383,12 @@ class dicom(dicomMixin):
             fig = matplotlib.pyplot.Figure(frameon=False)
             matplotlib.pyplot.imshow(imgArray, cmap='gray')
             matplotlib.pyplot.show()
+
+    def __is_sdr__(self):
+        """Determine if DICOM object is structured dose report
+        """
+
+        return self.header.__is_sdr__()
 
 
 class header(dicomMixin, gdcmMixin):
@@ -482,12 +502,27 @@ class header(dicomMixin, gdcmMixin):
         self._tag_lookup[tagNew] = att
         setattr(self, att, de)
 
+    def __is_sdr__(self):
+        """Determine whether the header is a structured dose report
+
+        Returns
+        -------
+        bool
+            True if the file appears to be a structured dose report (SDR) and
+            False otherwise.
+        """
+
+        return (self[0x0008, 0x0060].lower() == 'sr') and \
+               (self[0x0040, 0xA043]) and \
+               (self[0x0040, 0xA043][0].value == '113701')
+
     def readsingle(self, tag=()):
         """Reads only the requested tag
 
-        Similar to 'read', except 'readsingle' will read only the user-requested
-        tag, appending that element, in place, to the header class instance. If
-        the DICOM file has already been read, that tag will be
+        Similar to 'read', except 'readsingle' will read only the user-
+        requested tag, appending that element, in place, to the header class
+        instance. If the DICOM file has already been read, that tag will be
+        returned from memory
 
         Parameters
         ----------
