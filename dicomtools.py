@@ -124,7 +124,9 @@ class dicomMixin():
         Returns
         -------
         dir : py.path.local
-            Full directory name generated from DICOM meta-data
+            Full directory name generated from DICOM meta-data. Note that a
+            directory name of "unknown" is generated when the requisite DICOM
+            tags are not present.
 
         """
 
@@ -139,19 +141,18 @@ class dicomMixin():
         #       specifying what data to use
         sNum = hdr[0x0020, 0x0011]
         sDesc = hdr[0x0008, 0x0103e]
-        if not(sNum) or not(sDesc):
-            print(hdr)
-            print("Unable to generate directory name!")
-            return ''
+        dOut = 'unknown'
+        if sNum and sDesc:
+            # Remove special characters
+            sNum = ''.join([rc if rc.isalnum() else '_' for rc in str(sNum)])
+            sDesc = ''.join([rc if rc.isalnum() else '_' for rc in sDesc])
 
-        sNum = ''.join([rc if rc.isalnum() else '_' for rc in str(sNum)])
-        sDesc = ''.join([rc if rc.isalnum() else '_' for rc in sDesc])
+            dOut = '--'.join([sNum, sDesc])
 
-        # Remove special characters
-        return '--'.join([sNum, sDesc])
+        return dOut
 
     @staticmethod
-    def mkdir_dicom(dicomDir, useAllFiles=False):
+    def mkdir_dicom(dicomDir, useAllFiles=False) -> bool:
         """Rename a directory of DICOM files based on the meta-data
 
         Parameters
@@ -181,14 +182,17 @@ class dicomMixin():
                 # Get the new directory names
                 d = dicomMixin.get_dir_from_dicom(f)
 
-                # Generate the new path name
+                # Generate the new path name. Before making the directory via
+                # the 'ensure_dir' method, the useAllFiles logic must be
+                # evaluated. This is because of a potential error collison
+                # with the 'rename' method.
                 newPath = py.path.local(dicomDir.dirname).join(d)
-                newPath.ensure_dir()
-                newFile = newPath.join(f.purebasename)
+                newFile = newPath.join(f.basename)
 
                 # Rename the directory or move the file depending on the user
                 # option, returning the success
                 if useAllFiles:
+                    newPath.ensure_dir()
                     if newFile.exists():
                         continue
                     else:
@@ -590,8 +594,8 @@ class header(dicomMixin, gdcmMixin):
 
         # A note on the following code... I attempted to use a simple WHILE
         # loop to read the DICOM header, but found little success. In fact,
-        # using that control stru\cture resulted in an infinite loop. Instead, a
-        # generator is created (see the gdcmMixins method _gdcm_gen), which
+        # using that control stru\cture resulted in an infinite loop. Instead,
+        # a generator is created (see the gdcmMixins method _gdcm_gen), which
         # does not cause the infinite loop) and allows finer iteration control.
 
         # Get all available header data
