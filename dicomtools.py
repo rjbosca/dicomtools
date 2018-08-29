@@ -202,7 +202,7 @@ class dicomMixin():
                     isSuccess = newPath.isdir()
                     break
 
-            except (py.error.EEXIST) as error:
+            except (py.error.EEXIST):
                 #TODO: this error checking is incomplete
                 if (newPath == dicomDir):
                     break
