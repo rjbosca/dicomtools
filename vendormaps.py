@@ -2,49 +2,79 @@
 """
 Created on Tue Feb 20 09:04:54 2018
 
-@author: 703355681
+@author: Ryan Bosca
 """
-
-import dicomtools
 
 
 def BodyPart(hdr):
-    assert(type(hdr) == dicomtools.header)
-    if hdr[0x0008, 0x2218]:
-        for de in hdr[0x0008, 0x2218]:
+
+    if hdr[0x0008, 0x2218].value:
+        for de in hdr[0x0008, 0x2218].value:
             if (de.description.lower() == 'code meaning'):
                 return de.value
 
     # In the event that the Anatomic Region Sequence or code meaning within
     # that sequence is not found, simply return the Body Part Examined tag
-    return hdr[0x0018, 0x0015]
+    return hdr[0x0018, 0x0015].value
 
 
 def CollimatorShape(hdr):
-    assert(type(hdr) == dicomtools.header)
-    modality = hdr[0x0008, 0x0060].lower()
-    manufacturer = hdr[0x0008, 0x0070].lower()
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
     if (manufacturer == 'siemens') and (modality == 'DX'):
-        return hdr[0x0018, 0x1147]
+        return hdr[0x0018, 0x1147].value
     else:
-        return hdr[0x0018, 0x1700]
+        return hdr[0x0018, 0x1700].value
+
+
+def FieldOfView(hdr):
+    """Returns the MRI in-plane field of view as a tuple
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set from which to derive the FOV
+
+    Returns:
+        tuple:Field of view (usually in mm)
+
+    """
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality != 'mr'):
+        raise NotImplementedError("Unsupported modality")
+
+    if (manufacturer == 'siemens'):
+        pass
+    elif (manufacturer == 'philips medical systems'):
+
+        freqFov = float(hdr[0x0018, 0x1100].value)  # recon diameter
+
+        # Calculate the phase FOV
+        pctPhFov = float(hdr[0x0018, 0x0094].value)
+        phaseFov = freqFov * pctPhFov / 100
+
+    return (freqFov, phaseFov)
 
 
 def FilterMaterial(hdr):
-    assert(type(hdr) == dicomtools.header)
-    modality = hdr[0x0008, 0x0060]
-    manufacturer = hdr[0x0008, 0x0070]
-    if modality.lower() == 'dx':
-        if manufacturer.lower() == 'siemens':
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality == 'dx'):
+        if (manufacturer == 'siemens'):
             # TODO: from Mobilett Mira DICOM conformance
-            if 'cu' in hdr[0x0018, 0x1160]:
+            if 'cu' in hdr[0x0018, 0x1160].value.lower():
                 return ['COPPER']
-            elif 'cu' in hdr[0x0017, 0x100f].lower():
+            elif 'cu' in hdr[0x0017, 0x100f].value.lower():
                 return ['NONE']
             else:
                 return []
         else:
-            val = hdr[0x0018, 0x7050].upper()
+            val = hdr[0x0018, 0x7050].value.upper()
             if '\\' in val:
                 return val.split('\\')
             elif val:
@@ -54,12 +84,13 @@ def FilterMaterial(hdr):
 
 
 def FilterThicknessMinimum(hdr):
-    assert(type(hdr) == dicomtools.header)
-    modality = hdr[0x0008, 0x0060]
-    manufacturer = hdr[0x0008, 0x0070]
-    if modality.lower() == 'dx':
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality == 'dx'):
         fMat = FilterMaterial(hdr)
-        if manufacturer.lower() == 'siemens':
+        if (manufacturer == 'siemens'):
             if ('NONE' in fMat):
                 return [0]
             elif ('COPPER' in fMat):
@@ -68,7 +99,7 @@ def FilterThicknessMinimum(hdr):
                 raise NotImplementedError()
         else:
             if fMat:
-                fl = hdr[0x0018, 0x7054]
+                fl = hdr[0x0018, 0x7054].value
 
                 if not fl:
                     return ['']*len(fMat)
@@ -86,12 +117,13 @@ def FilterThicknessMinimum(hdr):
 
 
 def FilterThicknessMaximum(hdr):
-    assert(type(hdr) == dicomtools.header)
-    modality = hdr[0x0008, 0x0060]
-    manufacturer = hdr[0x0008, 0x0070]
-    if modality.lower() == 'dx':
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality == 'dx'):
         fMat = FilterMaterial(hdr)
-        if manufacturer.lower() == 'siemens':
+        if (manufacturer == 'siemens'):
             if ('NONE' in fMat):
                 return [0]
             elif ('COPPER' in fMat):
@@ -100,7 +132,8 @@ def FilterThicknessMaximum(hdr):
                 raise NotImplementedError()
         else:
             if fMat:
-                fl = hdr[0x0018, 0x7054]
+
+                fl = hdr[0x0018, 0x7054].value
 
                 if not fl:
                     return ['']*len(fMat)
@@ -112,19 +145,21 @@ def FilterThicknessMaximum(hdr):
                     return fl
                 else:
                     raise NotImplementedError()
+
             else:
                 return []
 
 
 def Grid(hdr):
-    assert(type(hdr) == dicomtools.header)
-    modality = hdr[0x0008, 0x0060]
-    manufacturer = hdr[0x0008, 0x0070].lower()
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
     if (modality == 'dx'):
-        s = hdr[0x0018, 0x1166].upper()
+        s = hdr[0x0018, 0x1166].value.upper()
         if (manufacturer == 'ge healthcare'):
             if 'FOCUSED' in s:
-                return s + f'\\{hdr[0x0018, 0x704c]:.0f}'
+                return s + f'\\{hdr[0x0018, 0x704c].value:.0f}'
             else:
                 return s
         else:
@@ -132,42 +167,102 @@ def Grid(hdr):
 
 
 def ImageProcessingDescription(hdr):
-    assert(type(hdr) == dicomtools.header)
-    modality = hdr[0x0008, 0x0060]
-    manufacturer = hdr[0x0008, 0x0070]
-    if modality.lower() == 'dx':
-        if manufacturer.lower() == 'siemens':
-            return (f'{hdr[0x0018, 0x1400]}; Edge Enhancement Gain='
-                    f'{hdr[0x0025, 0x100f]}; Edge Enhancement Kernel='
-                    f'{hdr[0x0025, 0x100e]}; Harmonization Gain='
-                    f'{hdr[0x0025, 0x100d]}; Harmonization Kernel='
-                    f'{hdr[0x0025, 0x100c]}')
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality == 'dx'):
+        if (manufacturer == 'siemens'):
+            return (f'{hdr[0x0018, 0x1400].value}; Edge Enhancement Gain='
+                    f'{hdr[0x0025, 0x100f].value}; Edge Enhancement Kernel='
+                    f'{hdr[0x0025, 0x100e].value}; Harmonization Gain='
+                    f'{hdr[0x0025, 0x100d].value}; Harmonization Kernel='
+                    f'{hdr[0x0025, 0x100c].value}')
         else:
-            return hdr[0x0018, 0x1400]
+            return hdr[0x0018, 0x1400].value
+
+
+def Modality(hdr):
+
+    manufacturer = hdr[0x0008, 0x0070].lower()
+
+    if (manufacturer == 'imaging sciences international') and (
+            hdr[0x0008, 0x1090].value in ['17-19DX']):
+        return 'PX'
+    else:
+        return hdr[0x0008, 0x0060].value
+
+
+def PhaseEncodingDir(hdr):
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality != 'mr'):
+        return
+
+    # Try to find the phase encoding direction the easy way
+    try:
+
+        acqMat = hdr[0x0018, 0x1310].value  # acquisition matrix
+        phEncDir = hdr[0x0018, 0x1312].value  # in-plane phase enc dir
+
+        # Validate using the acquisition matrix
+        if (phEncDir == 'ROW') and not (not acqMat[0] and acqMat[1]) or \
+                (phEncDir == 'COL') and not (acqMat[0] and not acqMat[1]):
+            raise NotImplementedError("Phase encoding direction mismatch")
+
+    except KeyError:
+
+        # The "In-Plane Phase Encoding Direction" tag wasn't there.
+        # Instead use the acquisition matrix to determine the direction.
+        if acqMat[0] and not acqMat[1]:
+            return 'COL'
+        elif not acqMat[0] and acqMat[1]:
+            return 'ROW'
+        else:
+            raise NotImplementedError("An unknown error occured.")
+
+    return phEncDir
 
 
 def Protocol(hdr):
-    assert(type(hdr) == dicomtools.header)
-    modality = hdr[0x0008, 0x0060].lower()
-    manufacturer = hdr[0x0008, 0x0070].lower()
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
     if (modality == 'dx'):
         if (manufacturer == 'siemens'):
             # Per DICOM conformance
-            val = hdr[0x0040, 0x0254]
+            val = hdr[0x0040, 0x0254].value
         elif (manufacturer == 'ge healthcare'):
-            val = hdr[0x0018, 0x1030]
+            val = hdr[0x0018, 0x1030].value
         else:
-            val = hdr[0x0008, 0x1032]
+            val = hdr[0x0008, 0x1032].value
             if (type(val) == list):
                 val = val[0].value
         return val
 
 
-def Modality(hdr):
-    assert(type(hdr) == dicomtools.header)
-    manufacturer = hdr[0x0008, 0x0070].lower()
-    if (manufacturer == 'imaging sciences international') and (
-            hdr[0x0008, 0x1090] in ['17-19DX']):
-        return 'PX'
-    else:
-        return hdr[0x0008, 0x0060]
+def ReceiveCoil(hdr):
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality != 'mr'):
+        return
+
+    if (manufacturer == 'philips medical systems'):
+        rcvCoilName = hdr[0x0018, 0x1250].value
+        # Check the Philips specific header for multi-coil selections
+        de = hdr[0x2005, 0x140f][0]
+        if (de[0x0018, 0x9048].value.lower() == "yes"):
+            rcvCoilName += f" ({de[0x0018, 0x9047].value})"
+    elif (manufacturer == 'siemens'):
+        # TODO: finish this...
+        # The location depends on the Siemens CSA header version
+        if (hdr[0x0051, 0x1008].value.lower() == "image num 4"):
+            rcvCoilName = hdr[0x0051, 0x100f].value
+            rcvCoilName = hdr[0x0018, 0x1250].value
+
+    return rcvCoilName
