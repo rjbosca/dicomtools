@@ -100,6 +100,19 @@ class dicomMixin():
         r.SetFileName(file.strpath)
         return r.Read()
 
+    def issdr(self):
+        """Attempt to determine whether a given file is an SDR
+
+        Returns
+        -------
+        bool
+            True if the file is a structured dose report (SDR), False
+            otherwise.
+
+        """
+
+        return self.__is_sdr__()
+
     @staticmethod
     def get_dir_from_dicom(hdr):
         """Converts DICOM meta-data to a valid directory
@@ -111,7 +124,9 @@ class dicomMixin():
         Returns
         -------
         dir : py.path.local
-            Full directory name generated from DICOM meta-data
+            Full directory name generated from DICOM meta-data. Note that a
+            directory name of "unknown" is generated when the requisite DICOM
+            tags are not present.
 
         """
 
@@ -126,19 +141,18 @@ class dicomMixin():
         #       specifying what data to use
         sNum = hdr[0x0020, 0x0011]
         sDesc = hdr[0x0008, 0x0103e]
-        if not(sNum) or not(sDesc):
-            print(hdr)
-            print("Unable to generate directory name!")
-            return ''
+        dOut = 'unknown'
+        if sNum and sDesc:
+            # Remove special characters
+            sNum = ''.join([rc if rc.isalnum() else '_' for rc in str(sNum)])
+            sDesc = ''.join([rc if rc.isalnum() else '_' for rc in sDesc])
 
-        sNum = ''.join([rc if rc.isalnum() else '_' for rc in str(sNum)])
-        sDesc = ''.join([rc if rc.isalnum() else '_' for rc in sDesc])
+            dOut = '--'.join([sNum, sDesc])
 
-        # Remove special characters
-        return '--'.join([sNum, sDesc])
+        return dOut
 
     @staticmethod
-    def mkdir_dicom(dicomDir, useAllFiles=False):
+    def mkdir_dicom(dicomDir, useAllFiles=False) -> bool:
         """Rename a directory of DICOM files based on the meta-data
 
         Parameters
@@ -168,13 +182,17 @@ class dicomMixin():
                 # Get the new directory names
                 d = dicomMixin.get_dir_from_dicom(f)
 
-                # Generate the new path name
+                # Generate the new path name. Before making the directory via
+                # the 'ensure_dir' method, the useAllFiles logic must be
+                # evaluated. This is because of a potential error collison
+                # with the 'rename' method.
                 newPath = py.path.local(dicomDir.dirname).join(d)
-                newFile = newPath.join(f.purebasename)
+                newFile = newPath.join(f.basename)
 
                 # Rename the directory or move the file depending on the user
                 # option, returning the success
                 if useAllFiles:
+                    newPath.ensure_dir()
                     if newFile.exists():
                         continue
                     else:
@@ -184,7 +202,7 @@ class dicomMixin():
                     isSuccess = newPath.isdir()
                     break
 
-            except (py.error.EEXIST) as error:
+            except (py.error.EEXIST):
                 #TODO: this error checking is incomplete
                 if (newPath == dicomDir):
                     break
@@ -314,7 +332,7 @@ class dicom(dicomMixin):
     ----------
     file : py.path.local
         DICOM file
-    header: dicomtools.header
+    header : dicomtools.header
         Meta-data reference class
 
     """
@@ -369,6 +387,12 @@ class dicom(dicomMixin):
             fig = matplotlib.pyplot.Figure(frameon=False)
             matplotlib.pyplot.imshow(imgArray, cmap='gray')
             matplotlib.pyplot.show()
+
+    def __is_sdr__(self):
+        """Determine if DICOM object is structured dose report
+        """
+
+        return self.header.__is_sdr__()
 
 
 class header(dicomMixin, gdcmMixin):
@@ -482,12 +506,27 @@ class header(dicomMixin, gdcmMixin):
         self._tag_lookup[tagNew] = att
         setattr(self, att, de)
 
+    def __is_sdr__(self):
+        """Determine whether the header is a structured dose report
+
+        Returns
+        -------
+        bool
+            True if the file appears to be a structured dose report (SDR) and
+            False otherwise.
+        """
+
+        return (self[0x0008, 0x0060].lower() == 'sr') and \
+               (self[0x0040, 0xA043]) and \
+               (self[0x0040, 0xA043][0].value == '113701')
+
     def readsingle(self, tag=()):
         """Reads only the requested tag
 
-        Similar to 'read', except 'readsingle' will read only the user-requested
-        tag, appending that element, in place, to the header class instance. If
-        the DICOM file has already been read, that tag will be
+        Similar to 'read', except 'readsingle' will read only the user-
+        requested tag, appending that element, in place, to the header class
+        instance. If the DICOM file has already been read, that tag will be
+        returned from memory
 
         Parameters
         ----------
@@ -555,8 +594,8 @@ class header(dicomMixin, gdcmMixin):
 
         # A note on the following code... I attempted to use a simple WHILE
         # loop to read the DICOM header, but found little success. In fact,
-        # using that control stru\cture resulted in an infinite loop. Instead, a
-        # generator is created (see the gdcmMixins method _gdcm_gen), which
+        # using that control stru\cture resulted in an infinite loop. Instead,
+        # a generator is created (see the gdcmMixins method _gdcm_gen), which
         # does not cause the infinite loop) and allows finer iteration control.
 
         # Get all available header data
