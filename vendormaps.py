@@ -256,7 +256,7 @@ def ReceiveCoil(hdr):
         rcvCoilName = hdr[0x0018, 0x1250].value
         # Check the Philips specific header for multi-coil selections
         de = hdr[0x2005, 0x140f][0]
-        if (de[0x0018, 0x9048].value.lower() == "yes"):
+        if (de[0x0018, 0x9048].value.lower() == "yes") and ((0x0018, 0x9047) in de):
             rcvCoilName += f" ({de[0x0018, 0x9047].value})"
     elif (manufacturer == 'siemens'):
         # TODO: finish this...
