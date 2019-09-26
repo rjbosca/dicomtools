@@ -253,16 +253,37 @@ def ReceiveCoil(hdr):
         return
 
     if (manufacturer == 'philips medical systems'):
-        rcvCoilName = hdr[0x0018, 0x1250].value
+        rxCoilName = hdr[0x0018, 0x1250].value
         # Check the Philips specific header for multi-coil selections
         de = hdr[0x2005, 0x140f][0]
         if (de[0x0018, 0x9048].value.lower() == "yes") and ((0x0018, 0x9047) in de):
-            rcvCoilName += f" ({de[0x0018, 0x9047].value})"
+            rxCoilName += f" ({de[0x0018, 0x9047].value})"
     elif (manufacturer == 'siemens'):
         # TODO: finish this...
         # The location depends on the Siemens CSA header version
         if (hdr[0x0051, 0x1008].value.lower() == "image num 4"):
-            rcvCoilName = hdr[0x0051, 0x100f].value
-            rcvCoilName = hdr[0x0018, 0x1250].value
+            rxCoilName = hdr[0x0051, 0x100f].value
+            rxCoilName = hdr[0x0018, 0x1250].value
 
-    return rcvCoilName
+    return rxCoilName
+
+
+def TransmitCoil(hdr):
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality != 'mr'):
+        return
+
+    # TODO: see if the SAR fields might shed some light on the transmit
+    if (manufacturer == 'philips medical systems'):
+        # Check the Philips specific header for transmit coil name
+        txCoilName = hdr[0x2005, 0x140f][0][0x0018, 0x9051].value
+    elif (manufacturer == 'siemens'):
+        txCoilName = hdr[0x0018, 0x1251].value
+    else:
+        raise NotImplementedError(
+            f"Manufacturer '{manufacturer}' not supported...")
+
+    return txCoilName
