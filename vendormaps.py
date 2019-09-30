@@ -261,9 +261,11 @@ def ReceiveCoil(hdr):
     elif (manufacturer == 'siemens'):
         # TODO: finish this...
         # The location depends on the Siemens CSA header version
-        if (hdr[0x0051, 0x1008].value.lower() == "image num 4"):
-            rxCoilName = hdr[0x0051, 0x100f].value
+        rxCoilName = 'Unknown'
+        if (0x0018, 0x1250) in hdr:
             rxCoilName = hdr[0x0018, 0x1250].value
+        if (hdr[0x0051, 0x1008].value.lower() == "image num 4"):
+            rxCoilName += f" ({hdr[0x0051, 0x100f].value})"
 
     return rxCoilName
 
