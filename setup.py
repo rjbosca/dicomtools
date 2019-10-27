@@ -14,7 +14,7 @@ setuptools.setup(
   packages=setuptools.find_packages(),
   install_requires=[
     "pydicom"
-  ]
+  ],
   classifiers=[
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
