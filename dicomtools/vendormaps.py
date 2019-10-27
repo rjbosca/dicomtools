@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Feb 20 09:04:54 2018
-
-@author: Ryan Bosca
-"""
 
 
 def BodyPart(hdr):
+    """Returns the user-selected body part
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        str:Body part
+
+    """
 
     if hdr[0x0008, 0x2218].value:
         for de in hdr[0x0008, 0x2218].value:
@@ -19,6 +23,14 @@ def BodyPart(hdr):
 
 
 def CollimatorShape(hdr):
+    """Retruns the x-ray equipment collimator shape
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -33,7 +45,7 @@ def FieldOfView(hdr):
     """Returns the MRI in-plane field of view as a tuple
 
     Parameters:
-        hdr (pydicom.dataset.FileDataset):DICOM data set from which to derive the FOV
+        hdr (pydicom.dataset.FileDataset):DICOM data set
 
     Returns:
         tuple:Field of view (usually in mm)
@@ -47,7 +59,10 @@ def FieldOfView(hdr):
         raise NotImplementedError("Unsupported modality")
 
     if (manufacturer == 'siemens'):
-        pass
+
+        # FIXME: validation should be performed using the same method as Philips
+        freqFov, phaseFov = hdr[0x0051, 0x100c].value.split()[1].split(sep='*')
+
     elif (manufacturer == 'philips medical systems'):
 
         freqFov = float(hdr[0x0018, 0x1100].value)  # recon diameter
@@ -56,7 +71,7 @@ def FieldOfView(hdr):
         pctPhFov = float(hdr[0x0018, 0x0094].value)
         phaseFov = freqFov * pctPhFov / 100
 
-    return (freqFov, phaseFov)
+    return (float(freqFov), float(phaseFov))
 
 
 def FilterMaterial(hdr):
