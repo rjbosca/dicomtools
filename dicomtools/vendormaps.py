@@ -349,9 +349,86 @@ def ReceiveCoil(hdr):
         # TODO: finish this...
         # The location depends on the Siemens CSA header version
         rxCoilName = 'Unknown'
+        rxCoilStr = ''
         if (0x0018, 0x1250) in hdr:
             rxCoilName = hdr[0x0018, 0x1250].value
         if (hdr[0x0051, 0x1008].value.lower() == "image num 4"):
+            rxCoilStr = hdr[0x0051, 0x100f].value
+
+        # Check for a coil signature based on the coil string
+        if (rxCoilName == 'Unknown') and rxCoilStr:
+
+            # Body 18
+            lBody18 = [f'BO{i}' for i in range(1, 4)]
+            if any([cs in rxCoilStr for cs in lBody18]):
+                rxCoilName = 'Body 18'
+
+            # Body coil
+            if ('BC' in rxCoilStr):
+                rxCoilName = 'Body Coil'
+
+            # Breast 2Ch
+            lBreast2Ch = ['BL1', 'BR1']
+            if any([cs in rxCoilStr for cs in lBreast2Ch]):
+                rxCoilName = 'Breast 2Ch'
+
+            # Breast 4Ch
+            lBreast4Ch = ['BL2', 'BR2']
+            if any([cs in rxCoilStr for cs in lBreast4Ch]):
+                rxCoilName = 'Breast 4Ch'
+
+            # Breast 16Ch
+            lBreast16Ch = ['BL4', 'BR4']
+            if any([cs in rxCoilStr for cs in lBreast16Ch]):
+                rxCoilName = 'Breast 16Ch'
+
+            # Flex large
+            if ('FL' in rxCoilStr):
+                rxCoilName = 'Flex Large'
+
+            # Flex small
+            if ('FS' in rxCoilStr):
+                rxCoilName = 'Flex Small'
+
+            # Foot/ankle 20
+            lFootAnkle20 = ['FA', 'TO']
+            if any([cs in rxCoilStr for cs in lFootAnkle20]):
+                rxCoilName = 'Foot/Ankle 20'
+
+            # Hand/wrist 16
+            lHandWrist16 = [f'HW{i}' for i in range(1, 4)]
+            if any([cs in rxCoilStr for cs in lHandWrist16]):
+                rxCoilName = 'Hand/Wrist 16'
+
+            # Head-neck 20 receive coil
+            lHeadNeck20 = ['HE1', 'HE2', 'HE3', 'HE4', 'NE1', 'NE2']
+            if any([cs in rxCoilStr for cs in lHeadNeck20]):
+                rxCoilName = 'Head-Neck 20'
+
+            # Peripheral angio
+            lPeriphAngio = [f'PA{i}' for i in range(1, 7)]
+            if any([cs in rxCoilStr for cs in lPeriphAngio]):
+                rxCoilName = 'Periph Angio'
+
+            # Shoulder large 16
+            if ('SHL' in rxCoilStr):
+                rxCoilName = 'Shoulder Large 16'
+
+            # Shoulder small 16
+            if ('SHS' in rxCoilStr):
+                rxCoilName = 'Shoulder Small 16'
+
+            # Spine 32
+            lSpine32 = [f'SP{i}' for i in range(1, 9)]
+            if any([cs in rxCoilStr for cs in lSpine32]):
+                rxCoilName = 'Spine 32'
+
+            # TxRx Knee 15
+            if ('15K' in rxCoilStr):
+                rxCoilName = 'TxRx Knee 15'
+
+        # Update the coil string
+        if rxCoilStr:
             rxCoilName += f" ({hdr[0x0051, 0x100f].value})"
 
     return rxCoilName
