@@ -75,6 +75,15 @@ def FieldOfView(hdr):
 
 
 def FilterMaterial(hdr):
+    """Get x-ray producing equipment filter material
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        list:Filter material
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -99,6 +108,15 @@ def FilterMaterial(hdr):
 
 
 def FilterThicknessMinimum(hdr):
+    """Get x-ray producing equipment filter material thickness minimum
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        list:Filter thickness minimum
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -132,6 +150,15 @@ def FilterThicknessMinimum(hdr):
 
 
 def FilterThicknessMaximum(hdr):
+    """Get x-ray producing equipment filter material thickness maximum
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        list:Filter thickness maximum
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -166,6 +193,15 @@ def FilterThicknessMaximum(hdr):
 
 
 def Grid(hdr):
+    """Get x-ray producing equipment grid information
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        str:Grid information (if available)
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -182,6 +218,15 @@ def Grid(hdr):
 
 
 def ImageProcessingDescription(hdr):
+    """Get x-ray producing equipment image processing information
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        tuple:Image processing details
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -198,6 +243,15 @@ def ImageProcessingDescription(hdr):
 
 
 def Modality(hdr):
+    """Get modality
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        str:Modality
+
+    """
 
     manufacturer = hdr[0x0008, 0x0070].lower()
 
@@ -209,6 +263,15 @@ def Modality(hdr):
 
 
 def PhaseEncodingDir(hdr):
+    """Get MRI phase encoding direction
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        str:Phase encoding direction
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -260,6 +323,15 @@ def Protocol(hdr):
 
 
 def ReceiveCoil(hdr):
+    """Get MR receive coil name
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        str:Receive coil name (if available)
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -285,7 +357,54 @@ def ReceiveCoil(hdr):
     return rxCoilName
 
 
+def SliceOrientation(hdr):
+    """Get MR slice orientation
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        str:Slice orientation
+
+    """
+
+    modality = hdr[0x0008, 0x0060].value.lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
+
+    if (modality != 'mr'):
+        return
+
+    #TODO: verify all of this using DICOM conformance statements
+    #TODO: implement the GE version
+    if (manufacturer == 'philips medical systems'):
+        val = hdr[0x2001, 0x100b].value.lower()
+    elif (manufacturer == 'siemens'):
+        val = hdr[0x0051, 0x100e].value.lower()
+    else:
+        raise NotImplementedError(f"Unknown manufacturer: {manufacturer}")
+
+    # Convert the vendor values to a standard lexicon
+    if 'tra' in val:
+        val = 'Axial'
+    elif 'cor' in val:
+        val = 'Coronal'
+    elif 'sag' in val:
+        val = 'Sagittal'
+    else:
+        raise NotImplementedError(f"Unkown orientation: {val}")
+
+    return val
+
 def TransmitCoil(hdr):
+    """Get MR transmit coil name
+
+    Parameters:
+        hdr (pydicom.dataset.FileDataset):DICOM data set
+
+    Returns:
+        str:Transmit coil name
+
+    """
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
