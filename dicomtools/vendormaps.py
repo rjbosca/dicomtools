@@ -65,11 +65,23 @@ def FieldOfView(hdr):
 
     elif (manufacturer == 'philips medical systems'):
 
-        freqFov = float(hdr[0x0018, 0x1100].value)  # recon diameter
+        # Reconstruction Diameter (0018, 1100) - value is a copy of the
+        # largest value of the Field of View. Confirmed in DICOM conformance
+        # statements of the following platforms:
+        #
+        # - Intera: R2.6.3
+        # - Achieva: R2.6.3, R3.2
 
-        # Calculate the phase FOV
-        pctPhFov = float(hdr[0x0018, 0x0094].value)
-        phaseFov = freqFov * pctPhFov / 100
+        # With the above definition, one has to use the percent phase FOV to
+        # determine which encoding direction is represented by the recon FOV
+        pctPhFov = float(hdr[0x0018, 0x0094].value) / 100.
+
+        if (pctPhFov >= 1):
+            phaseFov = float(hdr[0x0018, 0x1100].value)
+            freqFov = phaseFov / pctPhFov
+        else:
+            freqFov = float(hdr[0x0018, 0x1100].value)
+            phaseFov = freqFov * pctPhFov
 
     return (float(freqFov), float(phaseFov))
 
