@@ -48,7 +48,7 @@ def FieldOfView(hdr):
         hdr (pydicom.dataset.FileDataset):DICOM data set
 
     Returns:
-        tuple:Field of view (usually in mm)
+        tuple:(Frequency FOV, Phase FOV) - usually in mm
 
     """
 
@@ -82,6 +82,25 @@ def FieldOfView(hdr):
         else:
             freqFov = float(hdr[0x0018, 0x1100].value)
             phaseFov = freqFov * pctPhFov
+
+    elif (manufacturer == 'hitachi medical corporation'):
+
+        # FIXME: I have no means by which to determine the FOV as there is
+        # little to no documentation (including the conformance statement).
+        # However, it appears that the Reconstruction Diameter (0018, 1100)
+        # seems to be the frequency FOV and the "RectFOVRatio" (0029, 100d)
+        # is the phase FOV ratio
+
+        pctPhFov = float(hdr[0x0029, 0x100d].value) / 100.
+
+        if (pctPhFov == 1):
+            freqFov = float(hdr[0x0018, 0x1100].value)
+            phaseFov = float(hdr[0x0018, 0x1100].value) * pctPhFov
+        else:
+            raise NotADirectoryError(f"Unknown FOV for FOV ratio: {pctPhFov}")
+
+    else:
+        raise NotImplementedError(f"Unknown manufacturer: {manufacturer}")
 
     return (float(freqFov), float(phaseFov))
 
@@ -469,11 +488,14 @@ def SliceOrientation(hdr):
         val = hdr[0x2001, 0x100b].value.lower()
     elif (manufacturer == 'siemens'):
         val = hdr[0x0051, 0x100e].value.lower()
+    elif (manufacturer == 'hitachi medical corporation'):
+        # Valid for V4.0 and V5.0
+        val = hdr[0x0019, 0x1002].value.lower()
     else:
         raise NotImplementedError(f"Unknown manufacturer: {manufacturer}")
 
     # Convert the vendor values to a standard lexicon
-    if 'tra' in val:
+    if ('tra' in val) or ('ax' in val):
         val = 'Axial'
     elif 'cor' in val:
         val = 'Coronal'
