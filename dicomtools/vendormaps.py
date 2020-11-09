@@ -12,10 +12,25 @@ def BodyPart(hdr):
 
     """
 
-    if hdr[0x0008, 0x2218].value:
-        for de in hdr[0x0008, 0x2218].value:
-            if (de.description.lower() == 'code meaning'):
-                return de.value
+    if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
+
+        # Get the Frame Anatomic Sequence from the Shared Functional
+        # Group. Note that the following code assumes a single item
+        # in the sequence
+        fra = hdr[0x5200, 0x9229][0][0x0020, 0x9071][0]
+        if (len(fra[0x0008, 0x2218].value) == 1):
+            for de in fra[0x0008, 0x2218][0]:
+                if (de.description().lower() == "code meaning"):
+                    return de.value
+        else:
+            raise NotImplementedError("Anatomic Region Sequence length not equal to 1")
+
+    else:
+
+        if hdr[0x0008, 0x2218].value:
+            for de in hdr[0x0008, 0x2218].value:
+                if (de.description().lower() == 'code meaning'):
+                    return de.value
 
     # In the event that the Anatomic Region Sequence or code meaning within
     # that sequence is not found, simply return the Body Part Examined tag
@@ -65,23 +80,45 @@ def FieldOfView(hdr):
 
     elif (manufacturer == 'philips medical systems'):
 
-        # Reconstruction Diameter (0018, 1100) - value is a copy of the
-        # largest value of the Field of View. Confirmed in DICOM conformance
-        # statements of the following platforms:
-        #
-        # - Intera: R2.6.3
-        # - Achieva: R2.6.3, R3.2
+        if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
+            # The Pre-Fram Functional Group sequence contains the Pixel Measures
+            # Sequence. Get the pixel spacing from this sequence and calculate
+            # the FoV using the number of rows/columns
+            pmsg = hdr[0x5200, 0x9230][0][0x0028, 0x9110][0]
+            fovRow = float(pmsg[0x0028, 0x0030].value[0]) * \
+                     float(hdr[0x0028, 0x0010].value)
+            fovCol = float(pmsg[0x0028, 0x0030].value[1]) * \
+                     float(hdr[0x0028, 0x0011].value)
 
-        # With the above definition, one has to use the percent phase FOV to
-        # determine which encoding direction is represented by the recon FOV
-        pctPhFov = float(hdr[0x0018, 0x0094].value) / 100.
+            # The In-Plane Phase Encoding Direction is found in the MR FOV/
+            # Geometry Sequence of the Shared Functional Group.
+            peDir = PhaseEncodingDir(hdr)
+            if (peDir.lower() == "row"):
+                phaseFov = fovRow
+                freqFov = fovCol
+            else:
+                phaseFov = fovCol
+                freqFov = fovRow
 
-        if (pctPhFov >= 1):
-            phaseFov = float(hdr[0x0018, 0x1100].value)
-            freqFov = phaseFov / pctPhFov
         else:
-            freqFov = float(hdr[0x0018, 0x1100].value)
-            phaseFov = freqFov * pctPhFov
+
+            # Reconstruction Diameter (0018, 1100) - value is a copy of the
+            # largest value of the Field of View. Confirmed in DICOM conformance
+            # statements of the following platforms:
+            #
+            # - Intera: R2.6.3
+            # - Achieva: R2.6.3, R3.2
+
+            # With the above definition, one has to use the percent phase FOV to
+            # determine which encoding direction is represented by the recon FOV
+            pctPhFov = float(hdr[0x0018, 0x0094].value) / 100.
+
+            if (pctPhFov >= 1):
+                phaseFov = float(hdr[0x0018, 0x1100].value)
+                freqFov = phaseFov / pctPhFov
+            else:
+                freqFov = float(hdr[0x0018, 0x1100].value)
+                phaseFov = freqFov * pctPhFov
 
     elif (manufacturer == 'hitachi medical corporation'):
 
@@ -284,7 +321,7 @@ def Modality(hdr):
 
     """
 
-    manufacturer = hdr[0x0008, 0x0070].lower()
+    manufacturer = hdr[0x0008, 0x0070].value.lower()
 
     if (manufacturer == 'imaging sciences international') and (
             hdr[0x0008, 0x1090].value in ['17-19DX']):
@@ -304,33 +341,43 @@ def PhaseEncodingDir(hdr):
 
     """
 
-    modality = hdr[0x0008, 0x0060].value.lower()
-    manufacturer = hdr[0x0008, 0x0070].value.lower()
+    modality = Modality(hdr).lower()
 
     if (modality != 'mr'):
         return
 
-    # Try to find the phase encoding direction the easy way
-    try:
-
-        acqMat = hdr[0x0018, 0x1310].value  # acquisition matrix
-        phEncDir = hdr[0x0018, 0x1312].value  # in-plane phase enc dir
-
-        # Validate using the acquisition matrix
-        if (phEncDir == 'ROW') and not (not acqMat[0] and acqMat[1]) or \
-                (phEncDir == 'COL') and not (acqMat[0] and not acqMat[1]):
-            raise NotImplementedError("Phase encoding direction mismatch")
-
-    except KeyError:
-
-        # The "In-Plane Phase Encoding Direction" tag wasn't there.
-        # Instead use the acquisition matrix to determine the direction.
-        if acqMat[0] and not acqMat[1]:
-            return 'COL'
-        elif not acqMat[0] and acqMat[1]:
-            return 'ROW'
+    if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
+        # From the Shared Functional Group sequence, the In-Plane Phase
+        # Encoding Direction can be found in the MR FOV/Geometry Sequence
+        #FIXME: how to handle multi-slice data sets?
+        geo = hdr[0x5200, 0x9229][0][0x0018, 0x9125]
+        if (len(geo.value) != 1):
+            raise NotImplementedError("Shared Functional Group sequence has "
+                                      "too many itmes.")
         else:
-            raise NotImplementedError("An unknown error occured.")
+            phEncDir = geo[0][0x0018, 0x1312].value
+    else:
+        # Try to find the phase encoding direction the easy way
+        try:
+
+            acqMat = hdr[0x0018, 0x1310].value  # acquisition matrix
+            phEncDir = hdr[0x0018, 0x1312].value  # in-plane phase enc dir
+
+            # Validate using the acquisition matrix
+            if (phEncDir == 'ROW') and not (not acqMat[0] and acqMat[1]) or \
+                    (phEncDir == 'COL') and not (acqMat[0] and not acqMat[1]):
+                raise NotImplementedError("Phase encoding direction mismatch")
+
+        except KeyError:
+
+            # The "In-Plane Phase Encoding Direction" tag wasn't there.
+            # Instead use the acquisition matrix to determine the direction.
+            if acqMat[0] and not acqMat[1]:
+                return 'COL'
+            elif not acqMat[0] and acqMat[1]:
+                return 'ROW'
+            else:
+                raise NotImplementedError("An unknown error occured.")
 
     return phEncDir
 
@@ -371,11 +418,26 @@ def ReceiveCoil(hdr):
         return
 
     if (manufacturer == 'philips medical systems'):
-        rxCoilName = hdr[0x0018, 0x1250].value
-        # Check the Philips specific header for multi-coil selections
-        de = hdr[0x2005, 0x140f][0]
-        if (de[0x0018, 0x9048].value.lower() == "yes") and ((0x0018, 0x9047) in de):
-            rxCoilName += f" ({de[0x0018, 0x9047].value})"
+        if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
+            # The Receive Coil Name can be found in the Shared Functional
+            # Group sequence in the MR Receive Coil Sequence
+            if len(hdr[0x5200, 0x9229].value) != 1:
+                raise NotImplementedError("Shared Functional Group sequence has "
+                                          "too many values.")
+            elif (len(hdr[0x5200, 0x9229][0][0x0018, 0x9042].value) != 1):
+                raise NotImplementedError("MR Receive Coil sequence has "
+                                          "too many values.")
+            else:
+                sfg = hdr[0x5200, 0x9229][0][0x0018, 0x9042][0]
+                rxCoilName = sfg[0x0018, 0x1250].value
+                #FIXME: provide a means, as with older DICOM headers to
+                # determine which coil elements were used.
+        else:
+            rxCoilName = hdr[0x0018, 0x1250].value
+            # Check the Philips specific header for multi-coil selections
+            de = hdr[0x2005, 0x140f][0]
+            if (de[0x0018, 0x9048].value.lower() == "yes") and ((0x0018, 0x9047) in de):
+                rxCoilName += f" ({de[0x0018, 0x9047].value})"
     elif (manufacturer == 'siemens'):
         # TODO: finish this...
         # The location depends on the Siemens CSA header version
@@ -476,6 +538,8 @@ def SliceOrientation(hdr):
 
     """
 
+    import numpy
+
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
 
@@ -485,7 +549,37 @@ def SliceOrientation(hdr):
     #TODO: verify all of this using DICOM conformance statements
     #TODO: implement the GE version
     if (manufacturer == 'philips medical systems'):
-        val = hdr[0x2001, 0x100b].value.lower()
+        if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
+
+            # The following dictionary is used to determine the image
+            # orientation
+            dictOrient = {0: "Sagittal",
+                          1: "Coronal",
+                          2: "Axial",
+                          3: "Oblique"}
+
+            # The Plane Orientation Sequence is stored in the Functional 
+            # Groups Sequence. Calculating the quadrature of the direction
+            # cosines provides a good estimate of the orientation
+            pfg = hdr[0x5200, 0x9230][0][0x0020, 0x9116][0]
+            iop = numpy.array(pfg[0x0020, 0x0037].value, dtype=float)
+
+            # Calculate the possible orientations
+            d = numpy.vstack((iop - numpy.array([0,1,0,0,0,-1]),  # sagittal
+                              iop - numpy.array([1,0,0,0,0,-1]),  # coronal
+                              iop - numpy.array([1,0,0,0,1, 0])))  # axial
+            d = numpy.sum(d*d, axis=1)
+
+            # Set the output to oblique for angles greater than 45 deg.
+            ind = numpy.argmin(d)
+            if d.min() > numpy.cos(numpy.pi/4)**2:
+                ind = 3
+
+            # Set the return value
+            val = dictOrient[ind]
+
+        else:
+            val = hdr[0x2001, 0x100b].value.lower()
     elif (manufacturer == 'siemens'):
         val = hdr[0x0051, 0x100e].value.lower()
     elif (manufacturer == 'hitachi medical corporation'):
@@ -495,16 +589,17 @@ def SliceOrientation(hdr):
         raise NotImplementedError(f"Unknown manufacturer: {manufacturer}")
 
     # Convert the vendor values to a standard lexicon
-    if ('tra' in val) or ('ax' in val):
+    if ('tra' in val.lower()) or ('ax' in val).lower():
         val = 'Axial'
-    elif 'cor' in val:
+    elif 'cor' in val.lower():
         val = 'Coronal'
-    elif 'sag' in val:
+    elif 'sag' in val.lower():
         val = 'Sagittal'
     else:
         raise NotImplementedError(f"Unkown orientation: {val}")
 
     return val
+
 
 def TransmitCoil(hdr):
     """Get MR transmit coil name
@@ -525,8 +620,23 @@ def TransmitCoil(hdr):
 
     # TODO: see if the SAR fields might shed some light on the transmit
     if (manufacturer == 'philips medical systems'):
-        # Check the Philips specific header for transmit coil name
-        txCoilName = hdr[0x2005, 0x140f][0][0x0018, 0x9051].value
+        if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
+            # The Transmit Coil Name can be found in the Shared Functional
+            # Group sequence in the MR Transmit Coil Sequence
+            if len(hdr[0x5200, 0x9229].value) != 1:
+                raise NotImplementedError("Shared Functional Group sequence has "
+                                          "too many values.")
+            elif (len(hdr[0x5200, 0x9229][0][0x0018, 0x9049].value) != 1):
+                raise NotImplementedError("MR Receive Coil sequence has "
+                                          "too many values.")
+            else:
+                sfg = hdr[0x5200, 0x9229][0][0x0018, 0x9049][0]
+                txCoilName = sfg[0x0018, 0x9051].value
+                #FIXME: provide a means, as with older DICOM headers to
+                # determine which coil elements were used.
+        else:
+            # Check the Philips specific header for transmit coil name
+            txCoilName = hdr[0x2005, 0x140f][0][0x0018, 0x9051].value
     elif (manufacturer == 'siemens'):
         txCoilName = hdr[0x0018, 0x1251].value
     else:

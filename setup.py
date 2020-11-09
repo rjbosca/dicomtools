@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
   name="dicomtools",
-  version="0.0.3",
+  version="0.0.4",
   author="Ryan Bosca",
   description="Some helpful tools for working with DICOM files",
   long_description=long_description,
