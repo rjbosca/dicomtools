@@ -347,10 +347,19 @@ def PhaseEncodingDir(hdr):
         return
 
     if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
-        # From the Shared Functional Group sequence, the In-Plane Phase
-        # Encoding Direction can be found in the MR FOV/Geometry Sequence
+       # The In-Plane Phase Encoding Direction can be found in the MR
+        # FOV/Geometry Sequence. However, depending on the type of acquisition,
+        # that sequence might be stored in either the Pre-frame Functional
+        # Group of Shared Functional Group sequences
         #FIXME: how to handle multi-slice data sets?
-        geo = hdr[0x5200, 0x9229][0][0x0018, 0x9125]
+        if (0x0018, 0x9125) in hdr[0x5200, 0x9229][0]:
+            geo = hdr[0x5200, 0x9229][0][0x0018, 0x9125]
+        elif (0x0018, 0x9125) in hdr[0x5200, 0x9230][0]:
+            geo = hdr[0x5200, 0x9230][0][0x0018, 0x9125]
+        else:
+            raise NotImplementedError("Unable to determine location of the "
+                                      "In-Plane Phase Encoding Direction "
+                                      "element.")
         if (len(geo.value) != 1):
             raise NotImplementedError("Shared Functional Group sequence has "
                                       "too many itmes.")
@@ -589,7 +598,7 @@ def SliceOrientation(hdr):
         raise NotImplementedError(f"Unknown manufacturer: {manufacturer}")
 
     # Convert the vendor values to a standard lexicon
-    if ('tra' in val.lower()) or ('ax' in val).lower():
+    if ('tra' in val.lower()) or ('ax' in val.lower()):
         val = 'Axial'
     elif 'cor' in val.lower():
         val = 'Coronal'
