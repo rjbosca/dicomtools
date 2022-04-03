@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 
 
-def BodyPart(hdr):
+#TODO: consider decorators for validating, for example, modalities
+#      within functions
+
+from ctypes import Union
+
+from pydicom.dataset import Dataset, FileDataset
+
+def BodyPart(hdr: Union[Dataset, FileDataset])-> str:
     """Returns the user-selected body part
 
     Parameters:
@@ -37,7 +44,7 @@ def BodyPart(hdr):
     return hdr[0x0018, 0x0015].value
 
 
-def CollimatorShape(hdr):
+def CollimatorShape(hdr: Union[Dataset, FileDataset])-> str:
     """Retruns the x-ray equipment collimator shape
 
     Parameters:
@@ -56,7 +63,7 @@ def CollimatorShape(hdr):
         return hdr[0x0018, 0x1700].value
 
 
-def FieldOfView(hdr):
+def FieldOfView(hdr: Union[Dataset, FileDataset])-> str:
     """Returns the MRI in-plane field of view as a tuple
 
     Parameters:
@@ -149,7 +156,7 @@ def FieldOfView(hdr):
     return (float(freqFov), float(phaseFov))
 
 
-def FilterMaterial(hdr):
+def FilterMaterial(hdr: Union[Dataset, FileDataset])-> str:
     """Get x-ray producing equipment filter material
 
     Parameters:
@@ -182,7 +189,7 @@ def FilterMaterial(hdr):
                 return []
 
 
-def FilterThicknessMinimum(hdr):
+def FilterThicknessMinimum(hdr: Union[Dataset, FileDataset])-> str:
     """Get x-ray producing equipment filter material thickness minimum
 
     Parameters:
@@ -224,7 +231,7 @@ def FilterThicknessMinimum(hdr):
                 return []
 
 
-def FilterThicknessMaximum(hdr):
+def FilterThicknessMaximum(hdr: Union[Dataset, FileDataset])-> str:
     """Get x-ray producing equipment filter material thickness maximum
 
     Parameters:
@@ -267,7 +274,7 @@ def FilterThicknessMaximum(hdr):
                 return []
 
 
-def Grid(hdr):
+def Grid(hdr: Union[Dataset, FileDataset])-> str:
     """Get x-ray producing equipment grid information
 
     Parameters:
@@ -292,7 +299,7 @@ def Grid(hdr):
             return s
 
 
-def ImageProcessingDescription(hdr):
+def ImageProcessingDescription(hdr: Union[Dataset, FileDataset])-> str:
     """Get x-ray producing equipment image processing information
 
     Parameters:
@@ -317,7 +324,7 @@ def ImageProcessingDescription(hdr):
             return hdr[0x0018, 0x1400].value
 
 
-def Modality(hdr):
+def Modality(hdr: Union[Dataset, FileDataset])-> str:
     """Get modality
 
     Parameters:
@@ -337,7 +344,7 @@ def Modality(hdr):
         return hdr[0x0008, 0x0060].value
 
 
-def PhaseEncodingDir(hdr):
+def PhaseEncodingDir(hdr: Union[Dataset, FileDataset])-> str:
     """Get MRI phase encoding direction
 
     Parameters:
@@ -398,7 +405,7 @@ def PhaseEncodingDir(hdr):
     return phEncDir
 
 
-def Protocol(hdr):
+def Protocol(hdr: Union[Dataset, FileDataset])-> str:
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -416,7 +423,7 @@ def Protocol(hdr):
         return val
 
 
-def ReceiveCoil(hdr):
+def ReceiveCoil(hdr: Union[Dataset, FileDataset])-> str:
     """Get MR receive coil name
 
     Parameters:
@@ -543,7 +550,7 @@ def ReceiveCoil(hdr):
     return rxCoilName
 
 
-def SliceOrientation(hdr):
+def SliceOrientation(hdr: Union[Dataset, FileDataset])-> str:
     """Get MR slice orientation
 
     Parameters:
@@ -580,19 +587,20 @@ def SliceOrientation(hdr):
         raise NotImplementedError(f"Unknown manufacturer: {manufacturer}")
 
     # Convert the vendor values to a standard lexicon
-    if ('tra' in val.lower()) or ('ax' in val.lower()):
-        val = 'Axial'
-    elif 'cor' in val.lower():
-        val = 'Coronal'
-    elif 'sag' in val.lower():
-        val = 'Sagittal'
-    else:
-        raise NotImplementedError(f"Unkown orientation: {val}")
+    if (val not in ("Axial", "Coronal", "Sagittal", "Oblique")):
+        if ('tra' in val.lower()) or ('ax' in val.lower()):
+            val = 'Axial'
+        elif 'cor' in val.lower():
+            val = 'Coronal'
+        elif 'sag' in val.lower():
+            val = 'Sagittal'
+        else:
+            raise NotImplementedError(f"Unkown orientation: {val}")
 
     return val
 
 
-def TransmitCoil(hdr):
+def TransmitCoil(hdr: Union[Dataset, FileDataset])-> str:
     """Get MR transmit coil name
 
     Parameters:
