@@ -67,23 +67,30 @@ def FieldOfView(hdr):
 
     """
 
-    modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
 
-    if (modality != 'mr'):
-        raise NotImplementedError("Unsupported modality")
+    if (hdr[0x0008, 0x0060].value.lower() != 'mr'):
+        raise NotImplementedError('Unsupported modality...')
 
     if (manufacturer == 'siemens'):
 
         # FIXME: validation should be performed using the same method as Philips
         freqFov, phaseFov = hdr[0x0051, 0x100c].value.split()[1].split(sep='*')
 
+    elif (manufacturer == 'ge medical systems'):
+
+        # Use the reconstruction diameter
+        freqFov, phaseFov = 2*[float(hdr[0x0018, 0x1100].value)]
+
+        # Apply the percent phase field of view
+        phaseFov = phaseFov * float(hdr[0x0018, 0x0094].value) / 100.
+
     elif (manufacturer == 'philips medical systems'):
 
         if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
-            # The Pre-Fram Functional Group sequence contains the Pixel Measures
-            # Sequence. Get the pixel spacing from this sequence and calculate
-            # the FoV using the number of rows/columns
+            # The Pre-Frame Functional Group sequence contains the Pixel 
+            # Measures Sequence. Get the pixel spacing from this sequence 
+            # and calculate the FoV using the number of rows/columns
             pmsg = hdr[0x5200, 0x9230][0][0x0028, 0x9110][0]
             fovRow = float(pmsg[0x0028, 0x0030].value[0]) * \
                      float(hdr[0x0028, 0x0010].value)
@@ -547,7 +554,7 @@ def SliceOrientation(hdr):
 
     """
 
-    import numpy
+    from dicomtools.misc import ipp2plane
 
     modality = hdr[0x0008, 0x0060].value.lower()
     manufacturer = hdr[0x0008, 0x0070].value.lower()
@@ -558,35 +565,8 @@ def SliceOrientation(hdr):
     #TODO: verify all of this using DICOM conformance statements
     #TODO: implement the GE version
     if (manufacturer == 'philips medical systems'):
-        if (hdr[0x0008, 0x0016].value == "1.2.840.10008.5.1.4.1.1.4.1"):
-
-            # The following dictionary is used to determine the image
-            # orientation
-            dictOrient = {0: "Sagittal",
-                          1: "Coronal",
-                          2: "Axial",
-                          3: "Oblique"}
-
-            # The Plane Orientation Sequence is stored in the Functional 
-            # Groups Sequence. Calculating the quadrature of the direction
-            # cosines provides a good estimate of the orientation
-            pfg = hdr[0x5200, 0x9230][0][0x0020, 0x9116][0]
-            iop = numpy.array(pfg[0x0020, 0x0037].value, dtype=float)
-
-            # Calculate the possible orientations
-            d = numpy.vstack((iop - numpy.array([0,1,0,0,0,-1]),  # sagittal
-                              iop - numpy.array([1,0,0,0,0,-1]),  # coronal
-                              iop - numpy.array([1,0,0,0,1, 0])))  # axial
-            d = numpy.sum(d*d, axis=1)
-
-            # Set the output to oblique for angles greater than 45 deg.
-            ind = numpy.argmin(d)
-            if d.min() > numpy.cos(numpy.pi/4)**2:
-                ind = 3
-
-            # Set the return value
-            val = dictOrient[ind]
-
+        if (0x2001, 0x100b) in hdr:
+            val = ipp2plane(hdr)
         else:
             val = hdr[0x2001, 0x100b].value.lower()
     elif (manufacturer == 'siemens'):
@@ -594,6 +574,8 @@ def SliceOrientation(hdr):
     elif (manufacturer == 'hitachi medical corporation'):
         # Valid for V4.0 and V5.0
         val = hdr[0x0019, 0x1002].value.lower()
+    elif (manufacturer == "ge medical systems"):
+        val = ipp2plane(hdr)
     else:
         raise NotImplementedError(f"Unknown manufacturer: {manufacturer}")
 

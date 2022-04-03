@@ -38,4 +38,4 @@ venv.bak/
 .dropbox
 
 # Windows files
-*.ini
+desktop.ini
