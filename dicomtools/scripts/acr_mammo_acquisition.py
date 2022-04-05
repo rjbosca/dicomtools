@@ -6,18 +6,11 @@ Created on Tue Sep 18 15:28:56 2018
 """
 
 from pathlib import Path
-import os
-import pydicom
 from datetime import datetime
-from pydicom.errors import InvalidDicomError
 
-#TODO: develop code for MV (Philips) to ensure that the correct
-#      pixel pitch is determined. The Enhanced MR DICOM files
-#      provides the wrong number of phase encodes
+import pydicom
+
 #TODO: build the ACR requirements into the excel spreadsheet
-#TODO: add comments in, for example, the flip angle column 
-#      heading to warn the user that the FA might mean either
-#      excitation or refocusing...
 
 def store_or_pass(d, fld, val):
     if fld not in d:
@@ -26,26 +19,26 @@ def store_or_pass(d, fld, val):
 
 def _get_acq_params(hdr):
 
-    IsVol = ('VOLUME' in hdr.ImageType)
-    if IsVol:
+    is_vol = ('VOLUME' in hdr.ImageType)
+    if is_vol:
         hdr = hdr.XRay3DAcquisitionSequence[0]
         
     # Use the DICOM header (or 3D acquisition sequence) to get the paramters
     kVp = _get_val(hdr, (0x0018, 0x0060))  # kVp
-    if IsVol:
+    if is_vol:
         mAs = _get_val(hdr, (0x0018, 0x9332))
         t = _get_val(hdr, (0x0018, 0x9328))  # Exposure time
     else:
         mAs = _get_val(hdr, (0x0018, 0x1153)) / 1000
         t = _get_val(hdr, (0x0018, 0x1150))  # Exposure time
-    FS = _get_val(hdr, (0x0018, 0x1190))  # Focal spot(s)
+    fs = _get_val(hdr, (0x0018, 0x1190))  # Focal spot(s)
     target = _get_val(hdr, (0x0018, 0x1191))  # Anode Target Material
     filt = _get_val(hdr, (0x0018, 0x7050))  # Filter material
     th = _get_val(hdr, (0x0018, 0x11a0))  # Body part thickness
     force = _get_val(hdr, (0x0018, 0x11a2))  # Compression force
     ang = _get_val(hdr, (0x0018, 0x1510))
 
-    return kVp, t, mAs, FS, target, filt, th, force, ang
+    return kVp, t, mAs, fs, target, filt, th, force, ang
 
 
 def _get_val(hdr, fld):
@@ -61,21 +54,8 @@ def _get_val(hdr, fld):
         return ""
 
 
-def _get_common_dir(files):
-
-    return Path(os.getenv("USERPROFILE")) / "Desktop"
-#    files = set(files)
-#    for f in files:
-#        is_all = all([f in fl for fl in files])
-#        if is_all:
-#            # Found the commmon parent directory
-#            return py.path.local(f)
-#
-#    raise NotImplementedError("Unable to determine the "
-#                              "common parent directory")
-
-
 def gen_protocol(args):
+
     import pandas
 
     # Initialize the protocol dictionary definition. Be sure to copy
@@ -106,22 +86,16 @@ def gen_protocol(args):
         files.append(f.parent)
 
         # Attempt to load the DICOM file
-        try:
-            hdr = pydicom.dcmread(f)
-            hdr.decode()
-            if 'DirectoryRecordSequence' in hdr:
-                continue
-            uid = hdr.StudyInstanceUID
-            sop.append(hdr.SOPClassUID)
-        except InvalidDicomError:
-            print("Ignorning non-DICOM compliant files...")
-            continue
-        except Exception:
-            raise ImportError("Unable to import DICOM file")
+        hdr = pydicom.dcmread(f)
+        hdr.decode()
 
         # Verify the appropriate data content
-        if (hdr.Modality == "SR"):
+        if (type(hdr) == pydicom.dicomdir.DicomDir) or (hdr.Modality == 'SR'):
             continue
+
+        # Get some identifying info
+        uid = hdr.StudyInstanceUID
+        sop.append(hdr.SOPClassUID)
 
         # File successfully read - create a new container for this UID (or do
         # nothing if the UID exists)
@@ -155,24 +129,18 @@ def gen_protocol(args):
             dProt[r'Type'].append("3D")
         else:
             dProt[r'Type'].append("2D")
-        kVp, t, mAs, FS, target, filt, th, force, ang = _get_acq_params(hdr)
+        kVp, t, mAs, fs, target, filt, th, force, ang = _get_acq_params(hdr)
         dProt[r'Angle (deg)'].append(ang)
         dProt[r'Compression Force (N)'].append(force)
         dProt[r'Compressed Breast Thickness (mm)'].append(th)
         dProt[r'kVp'].append(kVp)
         dProt[r'Time (ms)'].append(t)
         dProt[r'mAs'].append(mAs)
-        dProt[r'Nominal Focal Spot (mm)'].append(FS)
+        dProt[r'Nominal Focal Spot (mm)'].append(fs)
         dProt[r'Tube Target'].append(target)
         dProt[r'Filter'].append(filt)
 
-        # Store some general information about the exam
-        #name = str(hdr.PatientName).replace('^',
-        #                                    ' ').strip().replace(' ', ', ')
-
     if args.out:
-        dOut = _get_common_dir(files)
-    # os.system(f"echo {eStr} | clip")
         for ek in exams.keys():
 
             # Convert the patient info to a data frame
@@ -180,8 +148,10 @@ def gen_protocol(args):
             dfProt = pandas.DataFrame(exams[ek][1])
 
             # Create the Excel writer
-            writer = pandas.ExcelWriter(dOut / (dfPat['Accession'][0] + '.xlsx'),
-                                        engine='xlsxwriter')
+            writer = pandas.ExcelWriter(
+                                    args.dir / (dfPat['Accession'][0] + '.xlsx'),
+                                    engine='xlsxwriter'
+                                    )
 
             dfPat.to_excel(writer, 'Sheet1', index=False)
             dfProt.to_excel(writer, 'Sheet1', startrow=3, index=False)
@@ -195,8 +165,8 @@ def _create_parser():
 
     parser = argparse.ArgumentParser(prog=__file__,
                                      description="Mammo DICOM protocol dump")
-    parser.add_argument('files', metavar='F', type=str, nargs='+',
-                        help=('Valid DICOM file (or directory) names '
+    parser.add_argument('path', metavar='F', type=str, nargs=1,
+                        help=('Valid DICOM file (or directory) name '
                               'from which to generate a protocol'))
     parser.add_argument('--out', action='store_true', default=False,
                         help='Output mammo acquisitions to Excel file')
@@ -206,32 +176,26 @@ def _create_parser():
 
 def _process_args(args, parser):
 
-    print("")
+    from pydicom.misc import is_dicom
 
     # Process the output flag first, as a target output file will needed to be
     # generated from the input files
-    validFiles = []
-    for fl in args.files:
-        fl = Path(fl)
-        if not fl.exists():
-            print(f"Ignoring invalid file or directory: {fl}")
-            continue
-        elif fl.is_dir():
-            # All files, DICOM or not, are added to the list. DICOM checks
-            # will occur later
-            [validFiles.append(f) for f in fl.glob("**/*") if f.is_file()]
-        elif fl.is_file():
-            validFiles.append(fl)
-        else:
-            raise NotImplementedError("An unknown error has occured while "
-                                      "parsing the file/dir input...")
+    fl = Path(args.path[0])
+    if fl.is_dir():  # add all DICOM files
+        args.dir = fl
+        dcms = [f for f in fl.rglob("*") if f.is_file() and is_dicom(f)]
+    elif fl.is_file():  # evaluate single file
+        args.dir = fl.parent
+        dcms = [fl]
+    else:
+        raise NotImplementedError("An unknown error has occured while "
+                                  f"parsing the file/dir input:\n{fl}")
 
-    if not len(validFiles):
-        print("")
+    if not len(dcms):
         parser.error("At least one valid DICOM file or directory name must be"
                      " specified")
     else:
-        args.files = validFiles
+        args.files = dcms
 
 
 if __name__ == "__main__":

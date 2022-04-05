@@ -4,7 +4,7 @@
 #TODO: consider decorators for validating, for example, modalities
 #      within functions
 
-from ctypes import Union
+from typing import Union
 
 from pydicom.dataset import Dataset, FileDataset
 

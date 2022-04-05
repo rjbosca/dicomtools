@@ -5,10 +5,11 @@ Created on Mon Feb 06 22:21:51 2017
 @author: Ryan Bosca
 """
 
-from ctypes import Union
-from pathlib import Path
-import pydicom
+from typing import Union
 
+from pathlib import Path
+
+import pydicom
 from pydicom.dataset import Dataset, FileDataset
 from pydicom.misc import is_dicom
 
