@@ -149,7 +149,7 @@ def gen_protocol(args):
 
             # Create the Excel writer
             writer = pandas.ExcelWriter(
-                                    args.dir / (dfPat['Accession'][0] + '.xlsx'),
+                                    args.dir / (dfPat['Accession'][0][1:-1] + '.xlsx'),
                                     engine='xlsxwriter'
                                     )
 
