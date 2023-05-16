@@ -5,57 +5,14 @@ Created on Mon May  1 14:06:36 2023
 @author: 703355681
 """
 
-from pathlib import Path
-from pydicom.errors import InvalidDicomError
 import numpy
-import pydicom
-import argparse
 import SimpleITK
 
+from dicomtools.acr.misc import _create_circular_mask, _calc_piu
 
 # -----------------------------------------------------------------------------
 # Helper functions
 # -----------------------------------------------------------------------------
-
-def _calc_piu(minSig, maxSig):
-
-    return 100.*(1 - (maxSig-minSig)/(maxSig+minSig))
-
-
-def _create_circular_mask(dim, center=None, radius=None):
-
-    h = dim[0]
-    w = dim[1]
-    if center is None:
-        center = (int(w/2), int(h/2))
-    if radius is None:
-        radius = min(center[0], center[1], w-center[0], h-center[1])
-    
-    y, x = numpy.ogrid[:h, :w]
-    dist_from_center = numpy.sqrt((x - center[0])**2 + (y - center[1])**2)
-
-    dist_from_center[dist_from_center <= radius] = 1
-    dist_from_center[dist_from_center > 1] = numpy.NaN
-
-    return dist_from_center
-
-
-def _get_slice_t1_series(d):
-
-    f_list = [f for f in d.rglob("*") if f.is_file()]
-
-    # Determine the series
-    for f in f_list:
-        hdr = pydicom.dcmread(f)
-        if (hdr.SeriesDescription == "ACR Axial T1"):
-            d_t1 = f.parent
-            break
-
-    # Load the DICOM series
-    reader = SimpleITK.ImageSeriesReader()
-    reader.SetFileNames(reader.GetGDCMSeriesFileNames(str(d_t1)))
-    return reader.Execute()[::,::,6]
-
 
 def _get_max_area(stats):
 
